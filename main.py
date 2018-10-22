@@ -227,4 +227,4 @@ def mypage():
             return "<script>alert('입력한 비밀번호가 일치하지 않습니다.'); window.location='/mypage';</script>"
 
 if __name__=='__main__':
-    app.run(debug=True, port=2222, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0')
