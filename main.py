@@ -40,43 +40,10 @@ def board_table():
         db.execute(f.read())
         db.commit()
 
-#USER 추가
-def add_user(user_id, user_pw, user_name, user_email, user_phone):
-    sql = 'INSERT INTO users(id, password, name, email, phone) VALUES ("%s", "%s", "%s", "%s", "%s")' % (user_id, user_pw, user_name, user_email, user_phone)
-    db = user_db()
-    db.execute(sql)
-    db.commit()
-
-#USER 정보 가져오기(session[name]으로)
-def get_user1(user_id):
-    sql = 'SELECT * FROM users WHERE id="{}"'.format(user_id)
-    db = user_db()
-    res = db.execute(sql)
-    res = res.fetchone()
-    return res
-
-#USER 정보 가져오기(id, pw로)
-def get_user2(user_id, user_pw):
-    sql = 'SELECT * FROM users WHERE id="%s" and password="%s"' % (user_id, user_pw)
-    db = user_db()
-    res = db.execute(sql)
-    res = res.fetchone()
-    return res
-
-#BOARD 추가
-def add_board(title, content):
-    user_id = session['username']
-    now = time.localtime()
-    date = "%04d-%02d-%02d" % (now.tm_year, now.tm_mon, now.tm_mday)
-
-    sql = 'INSERT INTO board(id, today_date, title, content) VALUES("%s","%s","%s","%s")' % (user_id, date, title, content)
-    db = board_db()
-    db.execute(sql)
-    db.commit()
 
 #BOARD 정보 가져오기
 def get_board():
-    sql = 'SELECT * FROM board order by idx desc'
+    sql = "SELECT * FROM board order by idx desc"
     db = board_db()
     res = db.execute(sql)
     res = res.fetchall()
@@ -97,10 +64,13 @@ def login():
         user_id = request.form.get('user_id')
         user_pw = request.form.get('user_pw')
         user_pw = hashlib.sha224(user_pw).hexdigest()
-        #if get_user(user_id, user_pw):
-        if get_user2(user_id, user_pw) is not None:
-            session['username'] = user_id
-           # return render_template('main.html', name=session['username'])
+        sql = "SELECT * FROM users WHERE id='%s' and password='%s'" % (user_id, user_pw)
+        db = user_db()
+        res = db.execute(sql)
+        res = res.fetchone()
+        print res
+        if res is not None:
+            session['username'] = res[0]
             return redirect(url_for('main'))
         else:
             return render_template('login.html', login_failed=True)
@@ -116,7 +86,10 @@ def join():
         user_name = request.form.get('user_name')
         user_email = request.form.get('user_email')
         user_phone = request.form.get('user_phone')
-        add_user(user_id, user_pw, user_name, user_email, user_phone)
+        sql = 'INSERT INTO users(id, password, name, email, phone) VALUES ("%s", "%s", "%s", "%s", "%s")' % (user_id, user_pw, user_name, user_email, user_phone)
+        db = user_db()
+        db.execute(sql)
+        db.commit()
         return "<script>alert('회원가입이 완료되었습니다.'); window.location='/login';</script>"
 
 @app.route('/logout')
@@ -135,11 +108,11 @@ def board():
             db = board_db()
 
             if str(column) == 'title':
-                sql_str = "select * from board where title = '%s' order by idx desc" % (keyword)
+                sql = "select * from board where title = '%s' order by idx desc" % (keyword)
             if str(column) == 'content':
-                sql_str = "select * from board where content= '%s' order by idx desc" % (keyword)
+                sql = "select * from board where content= '%s' order by idx desc" % (keyword)
 
-            res = db.execute(sql_str)
+            res = db.execute(sql)
             result = []
             res = res.fetchall()
 
@@ -166,7 +139,12 @@ def write():
     elif request.method == 'POST':
         title = request.form.get('title').encode('utf8')
         content = request.form.get('content').encode('utf8')
-        add_board(title, content)
+        now = time.localtime()
+        date = "%04d-%02d-%02d" % (now.tm_year, now.tm_mon, now.tm_mday)
+        sql = 'INSERT INTO board(id, today_date, title, content) VALUES("%s","%s","%s","%s")' % (session['username'], date, title, content)
+        db = board_db()
+        db.execute(sql)
+        db.commit()
         return render_template('board.html', name=session['username'], data=get_board())
 
 #글보기
@@ -200,7 +178,7 @@ def modified_chk():
         idx = request.form.get('idx')
         title = request.form.get("title").encode('utf8')
         content = request.form.get("content").encode('utf8')
-        sql = 'UPDATE board SET title="%s", content="%s" WHERE idx="%s"' % (title, content, idx)
+        sql = "UPDATE board SET title='%s', content='%s' WHERE idx='%s'" % (title, content, idx)
         db = board_db()
         db.execute(sql)
         db.commit()
@@ -209,7 +187,11 @@ def modified_chk():
 @app.route('/mypage', methods=['GET', 'POST'])
 def mypage():
     if request.method == 'GET':
-        return render_template('mypage.html', name=session['username'], data=get_user1(session['username']))
+        sql = "SELECT * FROM users WHERE id='%s'" % (session['username'])
+        db = user_db()
+        res = db.execute(sql)
+        res = res.fetchone()
+        return render_template('mypage.html', name=session['username'], data=res)
     elif request.method == 'POST':
         user_name = request.form.get("user_name")
         user_pw1 = request.form.get("user_pw1")
@@ -218,7 +200,7 @@ def mypage():
         user_phone = request.form.get("user_phone")
         if user_pw1 == user_pw2:
             user_pw1 = hashlib.sha224(user_pw1).hexdigest()
-            sql = 'UPDATE users SET password="%s", name="%s", email="%s", phone="%s" WHERE id="%s"' % (user_pw1, user_name, user_email, user_phone, session['username'])
+            sql = "UPDATE users SET password='%s', name='%s', email='%s', phone='%s' WHERE id='%s'" % (user_pw1, user_name, user_email, user_phone, session['username'])
             db = user_db()
             db.execute(sql)
             db.commit()
@@ -227,4 +209,4 @@ def mypage():
             return "<script>alert('입력한 비밀번호가 일치하지 않습니다.'); window.location='/mypage';</script>"
 
 if __name__=='__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=False, port=2333, host='0.0.0.0')
