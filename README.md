@@ -12,4 +12,4 @@ Python Web Application With Flask
 ## Skills
 * Language: Python, Flask, HTML, CSS
 * Server: Ubuntu 16.04.5
-* DataBase: MariaDB
+* DataBase: MySQL
