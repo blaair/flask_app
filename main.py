@@ -1,8 +1,12 @@
-#-*- coding: utf-8
+# -*- coding: utf-8
 from flask import Flask, g, request, render_template, session
 from flask import url_for, redirect
-import sys, unicodedata, os, time
-import sqlite3, hashlib
+import sys
+import unicodedata
+import os
+import time
+import sqlite3
+import hashlib
 
 
 app = Flask(__name__)
@@ -10,14 +14,18 @@ app.secret_key = 'a'
 USER_DB = "./db/user.db"
 BOARD_DB = "./db/board.db"
 
-#USER_DB 연결
+# USER_DB 연결
+
+
 def user_db():
     db = getattr(g, '_database', None)
     if db is None:
         db = g._database = sqlite3.connect(USER_DB)
     return db
 
-#USER 테이블 생성
+# USER 테이블 생성
+
+
 def user_table():
     with app.app_context():
         db = user_db()
@@ -25,14 +33,18 @@ def user_table():
         db.execute(f.read())
         db.commit()
 
-#BOARD_DB 연결
+# BOARD_DB 연결
+
+
 def board_db():
     db = getattr(g, 'database', None)
     if db is None:
         db = g.database = sqlite3.connect(BOARD_DB)
     return db
 
-#BOARD 테이블 생성
+# BOARD 테이블 생성
+
+
 def board_table():
     with app.app_context():
         db = board_db()
@@ -41,13 +53,14 @@ def board_table():
         db.commit()
 
 
-#BOARD 정보 가져오기
+# BOARD 정보 가져오기
 def get_board():
     sql = "SELECT * FROM board order by idx desc"
     db = board_db()
     res = db.execute(sql)
     res = res.fetchall()
     return res
+
 
 @app.route('/')
 def main():
@@ -56,24 +69,27 @@ def main():
     else:
         return render_template('main.html')
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
         return render_template('login.html')
     elif request.method == 'POST':
         user_id = request.form.get('user_id')
-        user_pw = request.form.get('user_pw')
-        user_pw = hashlib.sha224(user_pw).hexdigest()
-        sql = "SELECT * FROM users WHERE id='%s' and password='%s'" % (user_id, user_pw)
+        pw = request.form.get('user_pw')
+        user_pw = hashlib.sha224(pw.encode('utf-8')).hexdigest()
+        sql = "SELECT * FROM users WHERE id='%s' and password='%s'" % (
+            user_id, user_pw)
         db = user_db()
         res = db.execute(sql)
         res = res.fetchone()
-        print res
+        # print res
         if res is not None:
             session['username'] = res[0]
             return redirect(url_for('main'))
         else:
             return render_template('login.html', login_failed=True)
+
 
 @app.route('/join', methods=['GET', 'POST'])
 def join():
@@ -81,36 +97,42 @@ def join():
         return render_template('join.html')
     elif request.method == 'POST':
         user_id = request.form.get('user_id')
-        user_pw = request.form.get('user_pw')
-        user_pw = hashlib.sha224(user_pw).hexdigest()
+        pw = request.form.get('user_pw')
+        user_pw = hashlib.sha224(pw.encode('utf-8')).hexdigest()
+        # user_pw = pw.encode('utf-8')
         user_name = request.form.get('user_name')
         user_email = request.form.get('user_email')
         user_phone = request.form.get('user_phone')
-        sql = 'INSERT INTO users(id, password, name, email, phone) VALUES ("%s", "%s", "%s", "%s", "%s")' % (user_id, user_pw, user_name, user_email, user_phone)
+        sql = 'INSERT INTO users(id, password, name, email, phone) VALUES ("%s", "%s", "%s", "%s", "%s")' % (
+            user_id, user_pw, user_name, user_email, user_phone)
         db = user_db()
         db.execute(sql)
         db.commit()
         return "<script>alert('회원가입이 완료되었습니다.'); window.location='/login';</script>"
+
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('main'))
 
+
 @app.route('/board', methods=['GET', 'POST'])
 def board():
     if session.get('username', None) != None:
         if request.method == 'POST':
-            print "POST"
+            # print "POST"
             keyword = request.form['keyword']
             column = request.form['column']
 
             db = board_db()
 
             if str(column) == 'title':
-                sql = "select * from board where title = '%s' order by idx desc" % (keyword)
+                sql = "select * from board where title = '%s' order by idx desc" % (
+                    keyword)
             if str(column) == 'content':
-                sql = "select * from board where content= '%s' order by idx desc" % (keyword)
+                sql = "select * from board where content= '%s' order by idx desc" % (
+                    keyword)
 
             res = db.execute(sql)
             result = []
@@ -121,15 +143,14 @@ def board():
                 for i in range(0, len(result)):
                     if type(i) != int:
                         result[i] = ''.join(result[i])
-                        result[i] = unicodedata.normalize('NFKD', result[i]).encode('ascii', 'ignore')
+                        result[i] = unicodedata.normalize(
+                            'NFKD', result[i]).encode('ascii', 'ignore')
 
             return render_template('board.html', name=session['username'], data=result)
         return render_template('board.html', name=session['username'], data=get_board())
 
     if session.get('username', None) == None:
         return render_template('board.html', data=get_board())
-
-
 
 
 @app.route('/write', methods=['GET', 'POST'])
@@ -141,13 +162,16 @@ def write():
         content = request.form.get('content').encode('utf8')
         now = time.localtime()
         date = "%04d-%02d-%02d" % (now.tm_year, now.tm_mon, now.tm_mday)
-        sql = 'INSERT INTO board(id, today_date, title, content) VALUES("%s","%s","%s","%s")' % (session['username'], date, title, content)
+        sql = 'INSERT INTO board(id, today_date, title, content) VALUES("%s","%s","%s","%s")' % (
+            session['username'], date, title, content)
         db = board_db()
         db.execute(sql)
         db.commit()
         return render_template('board.html', name=session['username'], data=get_board())
 
-#글보기
+# 글보기
+
+
 @app.route('/view', methods=['GET', 'POST'])
 def view():
     idx = request.args.get('idx')
@@ -161,7 +185,7 @@ def view():
         return render_template('view.html', data=res)
 
 
-#글 수정
+# 글 수정
 @app.route('/modified', methods=['GET', 'POST'])
 def modified():
     if request.method == 'GET':
@@ -172,17 +196,21 @@ def modified():
         res = res.fetchone()
         return render_template('modified.html', name=session['username'], data=res)
 
-#글 수정 체크
+# 글 수정 체크
+
+
 @app.route('/modified_chk', methods=['GET', 'POST'])
 def modified_chk():
-        idx = request.form.get('idx')
-        title = request.form.get("title").encode('utf8')
-        content = request.form.get("content").encode('utf8')
-        sql = "UPDATE board SET title='%s', content='%s' WHERE idx='%s'" % (title, content, idx)
-        db = board_db()
-        db.execute(sql)
-        db.commit()
-        return redirect(url_for('view', idx=idx))
+    idx = request.form.get('idx')
+    title = request.form.get("title").encode('utf8')
+    content = request.form.get("content").encode('utf8')
+    sql = "UPDATE board SET title='%s', content='%s' WHERE idx='%s'" % (
+        title, content, idx)
+    db = board_db()
+    db.execute(sql)
+    db.commit()
+    return redirect(url_for('view', idx=idx))
+
 
 @app.route('/mypage', methods=['GET', 'POST'])
 def mypage():
@@ -200,7 +228,8 @@ def mypage():
         user_phone = request.form.get("user_phone")
         if user_pw1 == user_pw2:
             user_pw1 = hashlib.sha224(user_pw1).hexdigest()
-            sql = "UPDATE users SET password='%s', name='%s', email='%s', phone='%s' WHERE id='%s'" % (user_pw1, user_name, user_email, user_phone, session['username'])
+            sql = "UPDATE users SET password='%s', name='%s', email='%s', phone='%s' WHERE id='%s'" % (
+                user_pw1, user_name, user_email, user_phone, session['username'])
             db = user_db()
             db.execute(sql)
             db.commit()
@@ -208,5 +237,6 @@ def mypage():
         else:
             return "<script>alert('입력한 비밀번호가 일치하지 않습니다.'); window.location='/mypage';</script>"
 
-if __name__=='__main__':
-    app.run(debug=False, port=2333, host='0.0.0.0')
+
+if __name__ == '__main__':
+    app.run(debug=False, port=5500, host='0.0.0.0')
